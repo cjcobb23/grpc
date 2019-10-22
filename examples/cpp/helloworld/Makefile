@@ -38,7 +38,7 @@ vpath %.proto $(PROTOS_PATH)
 
 all: system-check greeter_client greeter_server greeter_async_client greeter_async_client2 greeter_async_server
 
-greeter_client: helloworld.pb.o helloworld.grpc.pb.o greeter_client.o
+greeter_client: fee.pb.o fee.grpc.pb.o submit_signed_transaction_response.pb.o submit_signed_transaction_response.grpc.pb.o currency.pb.o currency.grpc.pb.o fiat_amount.pb.o fiat_amount.grpc.pb.o payment.pb.o payment.grpc.pb.o transaction.pb.o transaction.grpc.pb.o signed_transaction.pb.o signed_transaction.grpc.pb.o submit_signed_transaction_request.pb.o submit_signed_transaction_request.grpc.pb.o get_fee_request.pb.o get_fee_request.grpc.pb.o get_account_info_request.pb.o get_account_info_request.grpc.pb.o xrp_amount.pb.o xrp_amount.grpc.pb.o account_info.pb.o account_info.grpc.pb.o xrp_ledger.pb.o xrp_ledger.grpc.pb.o greeter_client.o
 	$(CXX) $^ $(LDFLAGS) -o $@
 
 greeter_server: helloworld.pb.o helloworld.grpc.pb.o greeter_server.o
@@ -55,11 +55,11 @@ greeter_async_server: helloworld.pb.o helloworld.grpc.pb.o greeter_async_server.
 
 .PRECIOUS: %.grpc.pb.cc
 %.grpc.pb.cc: %.proto
-	$(PROTOC) -I $(PROTOS_PATH) --grpc_out=. --plugin=protoc-gen-grpc=$(GRPC_CPP_PLUGIN_PATH) $<
+	$(PROTOC) -I $(PROTOS_PATH) --grpc_out=. --plugin=protoc-gen-grpc=$(GRPC_CPP_PLUGIN_PATH) $< #account_info.proto auth_sample.proto currency.proto fee.proto fiat_amount.proto get_account_info_request.proto get_fee_request.proto hellostreamingworld.proto helloworld.proto keyvaluestore.proto payment.proto route_guide.proto signed_transaction.proto submit_signed_transaction_request.proto submit_signed_transaction_response.proto transaction.proto xrp_amount.proto xrp_ledger.proto 
 
 .PRECIOUS: %.pb.cc
 %.pb.cc: %.proto
-	$(PROTOC) -I $(PROTOS_PATH) --cpp_out=. $<
+	$(PROTOC) -I $(PROTOS_PATH) --cpp_out=. account_info.proto auth_sample.proto currency.proto fee.proto fiat_amount.proto get_account_info_request.proto get_fee_request.proto hellostreamingworld.proto helloworld.proto keyvaluestore.proto payment.proto route_guide.proto signed_transaction.proto submit_signed_transaction_request.proto submit_signed_transaction_response.proto transaction.proto xrp_amount.proto xrp_ledger.proto 
 
 clean:
 	rm -f *.o *.pb.cc *.pb.h greeter_client greeter_server greeter_async_client greeter_async_client2 greeter_async_server
