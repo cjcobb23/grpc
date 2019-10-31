@@ -21,3 +21,10 @@ service XRPLedgerAPI {
   // Submit a signed transaction to the XRP Ledger.
   rpc SubmitSignedTransaction (SubmitSignedTransactionRequest) returns (SubmitSignedTransactionResponse);
 }
+
+service XRPLedgerAPI2 {
+
+  // Get the fee for a transaction on the XRP Ledger.
+  rpc GetFee (GetFeeRequest) returns (Fee);
+
+}

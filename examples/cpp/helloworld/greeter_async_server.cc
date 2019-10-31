@@ -38,6 +38,7 @@ using grpc::ServerCompletionQueue;
 using grpc::Status;
 using helloworld::HelloRequest;
 using helloworld::HelloReply;
+using helloworld::GoodbyeReply;
 using helloworld::Greeter;
 
 class ServerImpl final {
@@ -77,7 +78,7 @@ class ServerImpl final {
     // server) and the completion queue "cq" used for asynchronous communication
     // with the gRPC runtime.
     CallData(Greeter::AsyncService* service, ServerCompletionQueue* cq)
-        : service_(service), cq_(cq), responder_(&ctx_), status_(CREATE) {
+        : service_(service), cq_(cq), responder_(&ctx_), responder2_(&ctx_), status_(CREATE) {
       // Invoke the serving logic right away.
       Proceed();
     }
@@ -92,24 +93,36 @@ class ServerImpl final {
         // the tag uniquely identifying the request (so that different CallData
         // instances can serve different requests concurrently), in this case
         // the memory address of this CallData instance.
+        std::cout << "requesting" << std::endl;
         service_->RequestSayHello(&ctx_, &request_, &responder_, cq_, cq_,
                                   this);
+        service_->RequestSayGoodbye(&ctx_,&request_, &responder2_, cq_, cq_, this);
+        std::cout << "requested" << std::endl;
       } else if (status_ == PROCESS) {
         // Spawn a new CallData instance to serve new clients while we process
         // the one for this CallData. The instance will deallocate itself as
         // part of its FINISH state.
+          std::cout << "making new call data" << std::endl;
         new CallData(service_, cq_);
+        std::cout << "made new call data" << std::endl;
 
         // The actual processing.
         std::string prefix("Hello ");
         reply_.set_message(prefix + request_.name());
+        std::cout << "made reply" << std::endl;
 
         // And we are done! Let the gRPC runtime know we've finished, using the
         // memory address of this instance as the uniquely identifying tag for
         // the event.
         status_ = FINISH;
+        //GoodbyeReply reply;
+        //reply.set_message("foo");
+        //responder_.finishe
         responder_.Finish(reply_, Status::OK, this);
+
+        std::cout << "responded" << std::endl;
       } else {
+          std::cout << "finished" << std::endl;
         GPR_ASSERT(status_ == FINISH);
         // Once in the FINISH state, deallocate ourselves (CallData).
         delete this;
@@ -135,6 +148,8 @@ class ServerImpl final {
     // The means to get back to the client.
     ServerAsyncResponseWriter<HelloReply> responder_;
 
+    ServerAsyncResponseWriter<GoodbyeReply> responder2_;
+
     // Let's implement a tiny state machine with the following states.
     enum CallStatus { CREATE, PROCESS, FINISH };
     CallStatus status_;  // The current serving state.
@@ -142,8 +157,11 @@ class ServerImpl final {
 
   // This can be run in multiple threads if needed.
   void HandleRpcs() {
+    std::cout << "entered handle rpcs" << std::endl;
     // Spawn a new CallData instance to serve new clients.
     new CallData(&service_, cq_.get());
+
+    std::cout << "created call data" << std::endl;
     void* tag;  // uniquely identifies a request.
     bool ok;
     while (true) {
@@ -152,8 +170,10 @@ class ServerImpl final {
       // memory address of a CallData instance.
       // The return value of Next should always be checked. This return value
       // tells us whether there is any kind of event or cq_ is shutting down.
+        std::cout << "polling completion queue" << std::endl;
       GPR_ASSERT(cq_->Next(&tag, &ok));
       GPR_ASSERT(ok);
+      std::cout << "got something from completion queue: " << tag << std::endl;
       static_cast<CallData*>(tag)->Proceed();
     }
   }

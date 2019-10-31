@@ -140,11 +140,14 @@ int main(int argc, char** argv) {
     }
 
     std::vector<std::thread> threads;
+    std::vector<double> times;
+    times.resize(num_threads);
 
     for(size_t i = 0; i < num_threads; ++i)
     {
-    threads.emplace_back([method,account,num_loops]()
+    threads.emplace_back([method,account,num_loops,&times,i]()
         {
+        double total_time = 0;
             for(size_t i = 0; i < num_loops; ++i)
             {
                 auto start = std::chrono::system_clock::now();
@@ -155,6 +158,8 @@ int main(int argc, char** argv) {
                 std::string user(account);
                 std::string reply = greeter.GetAccountInfo(user);
                 std::cout << "Greeter received: " << reply << std::endl;
+                if(reply == "RPC failed")
+                    break;
                 }
                 else if(method == "fee")
                 {
@@ -176,12 +181,27 @@ int main(int argc, char** argv) {
 
                 std::cout 
                 << "elapsed time: " << elapsed_seconds.count() << "s\n";
+                total_time += elapsed_seconds.count();
             }
+
+            times[i] = total_time;
         });
     }
     for(auto& t : threads)
     {
         t.join();
     }
+
+    double total_total_time = 0;
+    for(int i = 0; i < times.size(); ++i)
+    {
+        std::cout << "total time = " << times[i] << std::endl;
+        std::cout << "avg time = " << (times[i] / num_loops) << std::endl;
+
+
+        total_total_time += times[i];
+    }
+
+    std::cout << "global avg = " << (total_total_time / (num_loops *num_threads)) << std::endl;
     return 0;
 }
