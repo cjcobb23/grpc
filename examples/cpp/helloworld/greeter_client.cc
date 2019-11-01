@@ -37,6 +37,8 @@ using io::xpring::AccountInfo;
 using io::xpring::GetFeeRequest;
 using io::xpring::Fee;
 using io::xpring::XRPLedgerAPI;
+using io::xpring::SubmitSignedTransactionRequest;
+using io::xpring::SubmitSignedTransactionResponse;
 
 class GreeterClient {
  public:
@@ -82,6 +84,8 @@ class GreeterClient {
 
       if(status.ok())
       {
+
+
         return reply.DebugString();
       } else {
           std::cout << status.error_code() << ": " << status.error_message()
@@ -89,6 +93,65 @@ class GreeterClient {
           return "RPC failed";
       }
 
+  
+  }
+
+  std::string Submit(std::string const& blob)
+  {
+      SubmitSignedTransactionRequest request;
+
+      SubmitSignedTransactionResponse reply;
+
+      request.set_signed_transaction(blob);
+
+      ClientContext context;
+
+      Status status = stub_->SubmitSignedTransaction(&context,request,&reply);
+      std::cout << "sent via stub" << std::endl;
+
+      if(status.ok())
+      {
+
+                    std::string const& hash = reply.hash();
+
+                    std::string text_hash;
+                    for(size_t i = 0; i < hash.size(); ++i)
+                    {
+                        int byte = hash[i];
+                        int low = byte & 0x0F;
+                        int hi = (byte & 0xF0) >> 4;
+                        
+                        char c1;
+                        if(hi >= 10)
+                        {
+                            c1 = 'A' + hi - 10;
+                        }
+                        else
+                        {
+                            c1 = '0' + hi;
+                        }
+                        text_hash.push_back(c1);
+                        char c2;
+                        if(low >= 10)
+                        {
+                            c2 = 'A' + low - 10;
+                        }
+                        else
+                        {
+                            c2 = '0' + low;
+                        }                     
+
+                        text_hash.push_back(c2);
+
+                    }
+                    std::cout << "text hash = " << text_hash << std::endl;
+
+        return reply.DebugString();
+      } else {
+          std::cout << status.error_code() << ": " << status.error_message()
+                    << std::endl;
+          return "RPC failed";
+      }
   
   }
 
@@ -126,6 +189,18 @@ int main(int argc, char** argv) {
         thread_args = 3;
     }
 
+    std::string blob;
+    if(method == "submit")
+    {
+        if(argc < 2)
+        {
+            std::cout << "not enough args. pass account" << std::endl;
+            return -1;
+        }
+        blob = argv[2];
+        thread_args = 3;
+    }
+
     int num_threads = 1;
     int num_loops = 1;
     if(argc > thread_args)
@@ -145,7 +220,7 @@ int main(int argc, char** argv) {
 
     for(size_t i = 0; i < num_threads; ++i)
     {
-    threads.emplace_back([method,account,num_loops,&times,i]()
+    threads.emplace_back([method,account,blob,num_loops,&times,i]()
         {
         double total_time = 0;
             for(size_t i = 0; i < num_loops; ++i)
@@ -170,6 +245,41 @@ int main(int argc, char** argv) {
                 {
                     break;
                 }
+                } else if(method=="submit")
+                {
+                    std::string actual_blob;
+                    for(size_t i = 0; i < blob.size(); ++i)
+                    {
+                        unsigned int c;
+                        if(blob[i] >= 'A')
+                        {
+                            c = blob[i] - 'A' + 10;
+                        }
+                        else
+                        {
+                            c = blob[i] - '0';
+                        }
+                        c = c << 4;
+                        ++i;
+                        if(blob[i] >= 'A')
+                        {
+                            c += blob[i] - 'A' + 10;
+                        }
+                        else
+                        {
+                            c += blob[i] - '0';
+                        }
+                        actual_blob.push_back(c);
+
+                    } 
+                    std::cout << "made blob, sending" << std::endl;
+
+                    std::string reply = greeter.Submit(actual_blob);
+                    std::cout << "Greeter received : " << reply << std::endl;
+
+
+
+
                 }
 
 
