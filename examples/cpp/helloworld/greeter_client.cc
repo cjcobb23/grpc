@@ -39,6 +39,46 @@ using io::xpring::Fee;
 using io::xpring::XRPLedgerAPI;
 using io::xpring::SubmitSignedTransactionRequest;
 using io::xpring::SubmitSignedTransactionResponse;
+using io::xpring::TxRequest;
+using io::xpring::TxResponse;
+
+std::string actualBlobToTextBlob(std::string const& blob)
+{
+    std::string text_blob;
+    std::cout << "blob size is " << blob.size() << std::endl;
+    for(size_t i = 0; i < blob.size(); ++i)
+    {
+        int byte = blob[i];
+        int low = byte & 0x0F;
+        int hi = (byte & 0xF0) >> 4;
+
+        char c1;
+        if(hi >= 10)
+        {
+            c1 = 'A' + hi - 10;
+        }
+        else
+        {
+            c1 = '0' + hi;
+        }
+        text_blob.push_back(c1);
+        char c2;
+        if(low >= 10)
+        {
+            c2 = 'A' + low - 10;
+        }
+        else
+        {
+            c2 = '0' + low;
+        }                     
+
+        text_blob.push_back(c2);
+
+    }
+    return text_blob;
+
+}
+
 
 class GreeterClient {
  public:
@@ -155,9 +195,65 @@ class GreeterClient {
   
   }
 
+  std::string Tx(std::string const& hash)
+  {
+      TxRequest request;
+
+      TxResponse reply;
+
+      request.set_hash(hash);
+
+      ClientContext context;
+
+      Status status = stub_->Tx(&context,request,&reply);
+       if(status.ok())
+      {
+          std::cout << reply.DebugString() << std::endl;
+          std::cout << "account is " << actualBlobToTextBlob(reply.tx().account()) << std::endl;
+          std::cout << "dest is " << actualBlobToTextBlob(reply.tx().payment().destination()) << std::endl;
+
+
+        return reply.DebugString();
+      } else {
+          std::cout << status.error_code() << ": " << status.error_message()
+                    << std::endl;
+          return "RPC failed";
+      } 
+  }
+
  private:
   std::unique_ptr<XRPLedgerAPI::Stub> stub_;
 };
+
+std::string textBlobToActualBlob(std::string const& blob)
+{
+    std::string actual_blob;
+    for(size_t i = 0; i < blob.size(); ++i)
+    {
+        unsigned int c;
+        if(blob[i] >= 'A')
+        {
+            c = blob[i] - 'A' + 10;
+        }
+        else
+        {
+            c = blob[i] - '0';
+        }
+        c = c << 4;
+        ++i;
+        if(blob[i] >= 'A')
+        {
+            c += blob[i] - 'A' + 10;
+        }
+        else
+        {
+            c += blob[i] - '0';
+        }
+        actual_blob.push_back(c);
+    }
+    return actual_blob;
+
+}
 
 int main(int argc, char** argv) {
     // Instantiate the client. It requires a channel, out of which the actual RPCs
@@ -201,10 +297,33 @@ int main(int argc, char** argv) {
         thread_args = 3;
     }
 
+
+    bool loop_until_found = false;
+    if(method == "account_info")
+        {
+            std::cout << "argc is " << argc << std::endl;
+            std::cout << "argv[3] is " << argv[3] << std::endl;
+            std::string next_arg = argv[3];
+            if(argc > 3 && next_arg == "loop")
+            {
+                std::cout << "parsing loop" << std::endl;
+                loop_until_found = true;
+                thread_args = 4;
+            }
+        }
+
+    std::string hash;
+    if(method == "tx")
+    {
+        hash = argv[2];
+        thread_args = 3;
+    }
+
     int num_threads = 1;
     int num_loops = 1;
     if(argc > thread_args)
     {
+
         std::cout << "parsing thread args" << std::endl;
     
         num_threads = std::stoi(argv[thread_args]);
@@ -220,7 +339,7 @@ int main(int argc, char** argv) {
 
     for(size_t i = 0; i < num_threads; ++i)
     {
-    threads.emplace_back([method,account,blob,num_loops,&times,i]()
+    threads.emplace_back([method,account,blob,num_loops,&times,i,loop_until_found,hash]()
         {
         double total_time = 0;
             for(size_t i = 0; i < num_loops; ++i)
@@ -230,11 +349,23 @@ int main(int argc, char** argv) {
                             "localhost:50051", grpc::InsecureChannelCredentials()));
                 if(method == "account_info")
                 {
+
+                bool not_found = true;
+                while(not_found)
+                {
+                
                 std::string user(account);
                 std::string reply = greeter.GetAccountInfo(user);
                 std::cout << "Greeter received: " << reply << std::endl;
                 if(reply == "RPC failed")
-                    break;
+                {
+                    if(!loop_until_found)
+                        break;
+                    std::this_thread::sleep_for(std::chrono::seconds(1));
+                }
+                else
+                    not_found = false;
+                }
                 }
                 else if(method == "fee")
                 {
@@ -245,7 +376,8 @@ int main(int argc, char** argv) {
                 {
                     break;
                 }
-                } else if(method=="submit")
+                }
+                else if(method=="submit")
                 {
                     std::string actual_blob;
                     for(size_t i = 0; i < blob.size(); ++i)
@@ -276,9 +408,13 @@ int main(int argc, char** argv) {
 
                     std::string reply = greeter.Submit(actual_blob);
                     std::cout << "Greeter received : " << reply << std::endl;
-
-
-
+                }
+                else if(method == "tx")
+                {
+                    std::string hash_actual = textBlobToActualBlob(hash);
+                    std::string reply = greeter.Tx(hash_actual);
+                    std::cout << "Greeter received : " << reply
+                        << std::endl;
 
                 }
 
