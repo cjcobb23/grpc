@@ -19,6 +19,7 @@ SYSTEM ?= $(HOST_SYSTEM)
 CXX = g++
 CPPFLAGS += `pkg-config --cflags protobuf grpc`
 CXXFLAGS += -std=c++11
+CXXFLAGS += -I .
 ifeq ($(SYSTEM),Darwin)
 LDFLAGS += -L/usr/local/lib `pkg-config --libs protobuf grpc++ grpc`\
            -lgrpc++_reflection\
@@ -28,6 +29,7 @@ LDFLAGS += -L/usr/local/lib `pkg-config --libs protobuf grpc++ grpc`\
            -Wl,--no-as-needed -lgrpc++_reflection -Wl,--as-needed\
            -ldl
 endif
+LDFLAGS += -L./rpc/v1
 PROTOC = protoc
 GRPC_CPP_PLUGIN = grpc_cpp_plugin
 GRPC_CPP_PLUGIN_PATH ?= `which $(GRPC_CPP_PLUGIN)`
@@ -38,8 +40,8 @@ vpath %.proto $(PROTOS_PATH)
 
 all: system-check greeter_client greeter_server greeter_async_client greeter_async_client2 greeter_async_server
 
-greeter_client: fee.pb.o fee.grpc.pb.o submit_signed_transaction_response.pb.o submit_signed_transaction_response.grpc.pb.o currency.pb.o currency.grpc.pb.o fiat_amount.pb.o fiat_amount.grpc.pb.o payment.pb.o payment.grpc.pb.o transaction.pb.o transaction.grpc.pb.o signed_transaction.pb.o signed_transaction.grpc.pb.o submit_signed_transaction_request.pb.o submit_signed_transaction_request.grpc.pb.o get_fee_request.pb.o get_fee_request.grpc.pb.o get_account_info_request.pb.o get_account_info_request.grpc.pb.o xrp_amount.pb.o xrp_amount.grpc.pb.o account_info.pb.o account_info.grpc.pb.o xrp_ledger.pb.o xrp_ledger.grpc.pb.o greeter_client.o
-	$(CXX) $^ $(LDFLAGS) -o $@
+greeter_client: rpc/v1/amount.pb.o rpc/v1/amount.grpc.pb.o rpc/v1/ledger_objects.pb.o rpc/v1/ledger_objects.grpc.pb.o rpc/v1/meta.pb.o rpc/v1/meta.grpc.pb.o rpc/v1/fee.pb.o rpc/v1/fee.grpc.pb.o rpc/v1/submit.pb.o rpc/v1/submit.grpc.pb.o rpc/v1/transaction.pb.o rpc/v1/transaction.grpc.pb.o rpc/v1/tx.pb.o rpc/v1/tx.grpc.pb.o rpc/v1/account_info.pb.o rpc/v1/account_info.grpc.pb.o rpc/v1/xrp_ledger.pb.o rpc/v1/xrp_ledger.grpc.pb.o greeter_client.o
+	$(CXX) -I . $^ $(LDFLAGS) -o $@
 
 greeter_server: helloworld.pb.o helloworld.grpc.pb.o greeter_server.o
 	$(CXX) $^ $(LDFLAGS) -o $@
@@ -55,11 +57,13 @@ greeter_async_server: helloworld.pb.o helloworld.grpc.pb.o greeter_async_server.
 
 .PRECIOUS: %.grpc.pb.cc
 %.grpc.pb.cc: %.proto
-	$(PROTOC) -I $(PROTOS_PATH) --grpc_out=. --plugin=protoc-gen-grpc=$(GRPC_CPP_PLUGIN_PATH) $< #account_info.proto auth_sample.proto currency.proto fee.proto fiat_amount.proto get_account_info_request.proto get_fee_request.proto hellostreamingworld.proto helloworld.proto keyvaluestore.proto payment.proto route_guide.proto signed_transaction.proto submit_signed_transaction_request.proto submit_signed_transaction_response.proto transaction.proto xrp_amount.proto xrp_ledger.proto 
+	$(PROTOC) -I $(PROTOS_PATH) --grpc_out=. --plugin=protoc-gen-grpc=$(GRPC_CPP_PLUGIN_PATH) $< #account_info.proto auth_sample.proto currency.proto fee.proto fiat_amount.proto get_account_info_request.proto get_fee_request.proto hellostreamingworld.proto helloworld.proto keyvaluestore.proto ledger_sequence_response.proto ledger_sequence_request.proto payment.proto route_guide.proto signed_transaction.proto submit_signed_transaction_request.proto submit_signed_transaction_response.proto transaction.proto xrp_amount.proto xrp_ledger.proto 
 
 .PRECIOUS: %.pb.cc
-%.pb.cc: %.proto
-	$(PROTOC) -I $(PROTOS_PATH) --cpp_out=. account_info.proto auth_sample.proto currency.proto fee.proto fiat_amount.proto get_account_info_request.proto get_fee_request.proto hellostreamingworld.proto helloworld.proto keyvaluestore.proto payment.proto route_guide.proto signed_transaction.proto submit_signed_transaction_request.proto submit_signed_transaction_response.proto transaction.proto xrp_amount.proto xrp_ledger.proto 
+%.pb.cc: rpc/v1/%.proto
+	$(PROTOC) -I $(PROTOS_PATH) --cpp_out=. rpc/v1/account_info.proto rpc/v1/amount.proto rpc/v1/fee.proto rpc/v1/ledger_objects.proto rpc/v1/meta.proto rpc/v1/submit.proto rpc/v1/transaction.proto rpc/v1/tx.proto rpc/v1/xrp_ledger.proto 
+	
+#account_info.proto amount.proto currency.proto fee.proto fiat_amount.proto get_account_info_request.proto get_fee_request.proto hellostreamingworld.proto helloworld.proto keyvaluestore.proto ledger_sequence_response.proto ledger_sequence_request.proto meta.proto payment.proto route_guide.proto signed_transaction.proto submit_signed_transaction_request.proto submit_signed_transaction_response.proto transaction.proto tx_request.proto tx_response.proto xrp_amount.proto xrp_ledger.proto 
 
 clean:
 	rm -f *.o *.pb.cc *.pb.h greeter_client greeter_server greeter_async_client greeter_async_client2 greeter_async_server

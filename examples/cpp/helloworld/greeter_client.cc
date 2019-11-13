@@ -26,21 +26,21 @@
 #ifdef BAZEL_BUILD
 #include "examples/protos/helloworld.grpc.pb.h"
 #else
-#include "xrp_ledger.grpc.pb.h"
+#include "rpc/v1/xrp_ledger.grpc.pb.h"
 #endif
 
 using grpc::Channel;
 using grpc::ClientContext;
 using grpc::Status;
-using io::xpring::GetAccountInfoRequest;
-using io::xpring::AccountInfo;
-using io::xpring::GetFeeRequest;
-using io::xpring::Fee;
-using io::xpring::XRPLedgerAPI;
-using io::xpring::SubmitSignedTransactionRequest;
-using io::xpring::SubmitSignedTransactionResponse;
-using io::xpring::TxRequest;
-using io::xpring::TxResponse;
+using rpc::v1::GetAccountInfoRequest;
+using rpc::v1::GetAccountInfoResponse;
+using rpc::v1::GetFeeRequest;
+using rpc::v1::GetFeeResponse;
+using rpc::v1::XRPLedgerAPIService;
+using rpc::v1::SubmitTransactionRequest;
+using rpc::v1::SubmitTransactionResponse;
+using rpc::v1::TxRequest;
+using rpc::v1::TxResponse;
 
 std::string actualBlobToTextBlob(std::string const& blob)
 {
@@ -83,7 +83,7 @@ std::string actualBlobToTextBlob(std::string const& blob)
 class GreeterClient {
  public:
   GreeterClient(std::shared_ptr<Channel> channel)
-      : stub_(XRPLedgerAPI::NewStub(channel)) {}
+      : stub_(XRPLedgerAPIService::NewStub(channel)) {}
 
   // Assembles the client's payload, sends it and presents the response back
   // from the server.
@@ -94,7 +94,7 @@ class GreeterClient {
     //request.set_name(user);
 
     // Container for the data we expect from the server.
-    AccountInfo reply;
+    GetAccountInfoResponse reply;
 
     // Context for the client. It could be used to convey extra information to
     // the server and/or tweak certain RPC behaviors.
@@ -117,7 +117,7 @@ class GreeterClient {
   {
       GetFeeRequest request;
 
-      Fee reply;
+      GetFeeResponse reply;
 
       ClientContext context;
       Status status = stub_->GetFee(&context, request, &reply);
@@ -138,15 +138,15 @@ class GreeterClient {
 
   std::string Submit(std::string const& blob)
   {
-      SubmitSignedTransactionRequest request;
+      SubmitTransactionRequest request;
 
-      SubmitSignedTransactionResponse reply;
+      SubmitTransactionResponse reply;
 
       request.set_signed_transaction(blob);
 
       ClientContext context;
 
-      Status status = stub_->SubmitSignedTransaction(&context,request,&reply);
+      Status status = stub_->SubmitTransaction(&context,request,&reply);
       std::cout << "sent via stub" << std::endl;
 
       if(status.ok())
@@ -222,7 +222,7 @@ class GreeterClient {
   }
 
  private:
-  std::unique_ptr<XRPLedgerAPI::Stub> stub_;
+  std::unique_ptr<XRPLedgerAPIService::Stub> stub_;
 };
 
 std::string textBlobToActualBlob(std::string const& blob)
@@ -299,16 +299,35 @@ int main(int argc, char** argv) {
 
 
     bool loop_until_found = false;
+    bool queue = false;
+    bool signer_list = false;
     if(method == "account_info")
         {
             std::cout << "argc is " << argc << std::endl;
-            std::cout << "argv[3] is " << argv[3] << std::endl;
-            std::string next_arg = argv[3];
-            if(argc > 3 && next_arg == "loop")
+            if(argc > 3)
             {
-                std::cout << "parsing loop" << std::endl;
-                loop_until_found = true;
-                thread_args = 4;
+                std::string next_arg = argv[3];
+                if(next_arg == "loop")
+                {
+                    std::cout << "parsing loop" << std::endl;
+                    loop_until_found = true;
+                    thread_args = 4;
+                }
+                int arg_num = 3;
+                while(arg_num < argc && arg_num < 5)
+                {
+                    next_arg = argv[arg_num];
+                    arg_num++;
+                if(next_arg == "queue")
+                {
+                    queue = true;
+                }
+                if(next_arg == "signer_list")
+                {
+                    signer_list = true;
+                }
+                }
+                thread_args = arg_num;
             }
         }
 
@@ -417,7 +436,6 @@ int main(int argc, char** argv) {
                         << std::endl;
 
                 }
-
 
                 // Some computation here
                 auto end = std::chrono::system_clock::now();
